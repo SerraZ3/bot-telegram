@@ -23,7 +23,7 @@ export const commands: Record<CommandsType, ICommandsConfig> = {
   },
   payment: {
     command: "/payment",
-    description: "Mostra pagamento",
+    description: "Pagamento de serviço",
     regex: new RegExp(`\/${specialKey}\w*(payment|pagamento)`, "i"),
   },
 };

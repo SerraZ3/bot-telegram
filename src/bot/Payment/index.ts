@@ -1,53 +1,92 @@
 import { commands as commandsConfig } from "@config/bot";
+import telegramConfig from "@config/telegram";
 import TelegramBot from "node-telegram-bot-api";
-
-class Payment {
+interface IPayment {
+  execute: (bot: TelegramBot) => Promise<any>;
+}
+class Payment implements IPayment {
+  private callbackKey: string = "pay";
+  private titleOptions: string = "Prestação de serviço";
   public execute = async (bot: TelegramBot) => {
+    const callbackKey = this.callbackKey;
+    // Intercepta o comando para serviço
     bot.onText(commandsConfig.payment.regex, (msg, match) => {
       const chatId = msg.chat.id;
-      var iKeys = [];
-      iKeys.push([
-        {
-          text: "R$ 2000,00",
-          callback_data: "pay:2000.00",
-        },
-      ]);
+      var products = [
+        [
+          {
+            text: "R$ 2000,00",
+            callback_data: callbackKey + ":2000.00",
+            pay: true,
+          },
+          // {
+          //   text: "R$ 2000,00",
+          //   callback_data: callbackKey +":2000.00",
+          //   pay: true,
+          // },
+        ],
+        // [
+        //   {
+        //     text: "R$ 2000,00",
+        //     callback_data: callbackKey +":2000.00",
+        //     pay: true,
+        //   },
+        // ],
+      ];
 
-      bot.sendMessage(chatId, "Valor a ser pago", {
+      bot.sendMessage(chatId, this.titleOptions, {
         reply_markup: {
-          inline_keyboard: iKeys,
+          inline_keyboard: products,
         },
       });
     });
+    // Recebe opção selecionada pelo usuário
     bot.on("callback_query", function (msg: any) {
-      console.log(1, msg);
-      console.log(1, msg.message.reply_markup.inline_keyboard);
       const userId = msg.from.id;
       const optionSelected = msg.data;
-      var StripeToken = process.env.API_STRIPE || "";
-      var func = optionSelected.split(":")[0];
-      var param = optionSelected.split(":")[1];
-      if (func == "pay") {
-        var payload = userId + Date.now() + param; // you can use your own payload
+      const optionSplited = optionSelected.split(":");
+      var action = optionSplited[0];
+
+      if (action === callbackKey) {
+        var price = optionSelected.split(":")[1].replace(".", "");
+
+        var payload = userId + Date.now() + price;
         var prices = [
           {
-            label: "Compra",
-            amount: parseInt(param.replace(".", "")), // if you have a decimal price with . instead of ,
+            label: "Compra 1",
+            amount: parseInt(price) / 2, // if you have a decimal price with . instead of ,
+          },
+          {
+            label: "Compra 2",
+            amount: parseInt(price) / 2, // if you have a decimal price with . instead of ,
           },
         ];
         bot.sendInvoice(
           msg.from.id,
-          "Compra",
-          // "Compra de frases " + param + "€",
+          // Titulo do item selecionado
+          "Serviço",
+          // Descrição
           "Compra de frases especiais",
+          // Descrição
           payload,
-          StripeToken,
+          // Token stripe
+          telegramConfig.stripe,
           "pay",
+          // Moeda
           "BRL",
-          prices
-        ); // send invoice button to user
-        // remember to save payload and user data in db, it will be useful later
-        // usually i save Payload and Status = WAIT
+          // Valores do serviço
+          prices,
+          // Valores do serviço
+          {
+            photo_url: "https://avatars.githubusercontent.com/u/30788371?v=4",
+            photo_width: 500,
+            photo_height: 500,
+            need_email: true,
+            need_name: true,
+            need_phone_number: true,
+            disable_notification: true,
+          }
+        );
       }
     });
     // * Realiza um pré-checkout da compra
@@ -55,6 +94,11 @@ class Payment {
       console.log(`[bot] pre checkout`);
       console.log(query);
       bot.answerPreCheckoutQuery(query.id, true);
+    });
+    bot.on("successful_payment", (msg) => {
+      console.log(`[bot] successful payment`);
+      console.log("Successful Payment", msg);
+      bot.sendMessage(msg.chat.id, "Thank you for your purchase!");
     });
     // * Verifica o status do pagamento
     bot.on("message", function (message) {
