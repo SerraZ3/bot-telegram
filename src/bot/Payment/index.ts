@@ -50,7 +50,7 @@ class Payment implements IPayment {
       if (action === callbackKey) {
         var price = optionSelected.split(":")[1].replace(".", "");
 
-        var payload = userId + Date.now() + price;
+        var payload = `${userId}.${Date.now()}.${price}`;
         var prices = [
           {
             label: "Compra 1",
